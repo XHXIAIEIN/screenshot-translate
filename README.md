@@ -4,7 +4,7 @@
 
 ## 安装
 
-在 iPhone 上打开 [iCloud 链接](https://www.icloud.com/shortcuts/e9c3275a26f548a5912ebbf7412bf0f2) 安装。
+在 iPhone 上打开 [iCloud 链接](https://www.icloud.com/shortcuts/c04d54147b1b4890a65129e3e51ee9e1) 安装。
 
 安装后，建议为它绑定一个快捷触发方式：操作按钮、轻点背面或悬浮球，后两者可在 **设置** > **辅助功能** > **触控** 中设置。
 
@@ -28,9 +28,9 @@ python build.py
 
 产物为 `截图翻译.shortcut`。iOS 不允许直接导入未签名的快捷指令文件，需要借助辅助快捷指令完成导入：
 
-1. 安装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)，它由本仓库的 `installer.py` 生成。
+1. 安装 [Shortcut Installer](https://www.icloud.com/shortcuts/9918c1c856c049b4beb7918904b1fe0d)，它由本仓库的 `installer.py` 生成。
 2. 把 `截图翻译.shortcut` 传到 iPhone（AirDrop、微信、Telegram 均可）。
-3. 选中该文件，轻点 **共享** > **导入快捷指令**。
+3. 选中该文件，轻点 **共享** > **Shortcut Installer**。
 
 ## License
 
