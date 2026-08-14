@@ -7,10 +7,9 @@ iOS 快捷指令：截屏 → OCR → Google 翻译 → 复制并弹窗显示。
 
 ## 安装
 
-1. 安装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)——iOS 不接受未签名的 `.shortcut`，它负责远程签名并装进库
-2. 把 `截图翻译.shortcut` 传到 iPhone（微信 / Telegram / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**
+[截图翻译](https://www.icloud.com/shortcuts/e9c3275a26f548a5912ebbf7412bf0f2) 一键安装。
 
-以后装本仓库任何 `.shortcut` 都是第 2 步一个动作。
+链接指向发布版；仓库里的 `截图翻译.shortcut` 永远是最新构建。要装它（或自己构建的版本）：先装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)，然后把文件传到 iPhone（微信 / Telegram / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**——iOS 不接受未签名的 `.shortcut`，它负责远程签名并装进库。
 
 ## 用法
 
