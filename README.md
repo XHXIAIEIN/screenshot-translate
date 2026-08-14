@@ -9,8 +9,6 @@ iOS 快捷指令：截屏 → OCR → Google 翻译 → 复制并弹窗显示。
 
 [截图翻译](https://www.icloud.com/shortcuts/e9c3275a26f548a5912ebbf7412bf0f2) 一键安装。
 
-链接指向发布版；仓库里的 `截图翻译.shortcut` 永远是最新构建。要装它（或自己构建的版本）：先装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)，然后把文件传到 iPhone（微信 / Telegram / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**——iOS 不接受未签名的 `.shortcut`，它负责远程签名并装进库。
-
 ## 用法
 
 - **直接运行**：自动截屏，裁掉顶部通知栏和底部导航栏，翻译整屏内容
@@ -29,7 +27,7 @@ iOS 快捷指令：截屏 → OCR → Google 翻译 → 复制并弹窗显示。
 - `TITLE`：弹窗标题
 - 清洗正则、裁剪比例：见文件头部和 `source()`
 
-生成的文件未签名，照常用「导入快捷指令」安装。「导入快捷指令」自身由 `installer.py` 生成，更新它时用库里的旧版装新版即可。
+生成的文件未签名，iOS 不接受直接导入。装法：先装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)，把文件传到 iPhone（微信 / Telegram / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**，远程签名后自动进库。仓库里的 `截图翻译.shortcut` 就是最新构建（iCloud 链接只指向发布版），装它也走这条路。「导入快捷指令」自身由 `installer.py` 生成，更新时用旧版装新版。
 
 ## License
 
