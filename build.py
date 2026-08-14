@@ -2,30 +2,51 @@ import plistlib
 import sys
 import uuid
 
-MARK = '￼'
-SENTINEL = '⸻'
+MARK = '￼'  # 对象替换字符，标记文本模板里附件的插入点
+SENTINEL = '⸻'  # 翻译接口会吞空行：段落间隔先换成哨兵行，译完再还原
 TARGET = 'zh-CN'
 MIN_LETTERS = 3
 TITLE = '翻译结果'
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
-NOISE = (r'(?m)[ \t]*(?:>=|=>|==|[>\u203a\u00bb\u2192\u2261\u22ee\u22ef\u2630\u2605\u2606\u2713\u2715\u2717\u00d7\u25a0\u25a1\u25aa\u25b8\u25be\u2699]+'
-         r'|[.\u00b7\u2022\u2026\u22ef\u2027\u2219]{2,})[ \t]*$'
-         r'|^[ \t]*(?:[-=._~*\u00b7\u2022\u2026][ \t]*){2,}$'
-         r'|^[ \t]*(?:[>\u2039\u203a\u00bb\u2192][ \t]*){1,12}$'
-         r'|^[ \t]*[^\u4e00-\u9fff\s][ \t]*$\n?'
-         r'|^[ \t]*[^\w\s]{1,3}[ \t]*$\n?'
-         r'|^[ \t]*[\d :.,\-/%\u00b0+\t]+(?:[AaPp]\.?[Mm]\.?)?[ \t]*$\n?'
-         r'|^[ \t]*\d+(?:[.,]\d+)?[ \t]*'
-         r'(?:[Cc]m|[Mm]m|[Kk]m|[Kk]g|[Ll]bs?|[Ff]t|[Ii]n|[Mm]i|[MmGg])[ \t]*$\n?'
-         r'|^[ \t]*(?![^\n]*[\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7a3\uff66-\uff9d])'
-         r'(?=[^\n]*[\u3400-\u9fff])[^\n]*$\n?'
-         r'|^[ \t]*(?![AIaiyoeu\d\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u1ea0-\u1ef9][ \t])(\S)\1?[ \t]+(?=\S)')
+# --- 清理规则 ---
+# 正则在快捷指令的替换动作里执行，统一写 \uXXXX 转义保持 ASCII（verify 强制）
+
+NOISE = '(?m)' + '|'.join([
+    # 行尾的箭头、勾叉、图标类符号，或连串的点
+    r'[ \t]*(?:>=|=>|==|[>\u203a\u00bb\u2192\u2261\u22ee\u22ef\u2630\u2605\u2606'
+    r'\u2713\u2715\u2717\u00d7\u25a0\u25a1\u25aa\u25b8\u25be\u2699]+'
+    r'|[.\u00b7\u2022\u2026\u22ef\u2027\u2219]{2,})[ \t]*$',
+    # 整行只有分隔线
+    r'^[ \t]*(?:[-=._~*\u00b7\u2022\u2026][ \t]*){2,}$',
+    # 整行只有箭头
+    r'^[ \t]*(?:[>\u2039\u203a\u00bb\u2192][ \t]*){1,12}$',
+    # 整行只有一个非汉字字符
+    r'^[ \t]*[^\u4e00-\u9fff\s][ \t]*$\n?',
+    # 整行只有一至三个符号
+    r'^[ \t]*[^\w\s]{1,3}[ \t]*$\n?',
+    # 整行是时间、日期、电量这类数字串
+    r'^[ \t]*[\d :.,\-/%\u00b0+\t]+(?:[AaPp]\.?[Mm]\.?)?[ \t]*$\n?',
+    # 整行是数字加计量单位
+    r'^[ \t]*\d+(?:[.,]\d+)?[ \t]*'
+    r'(?:[Cc]m|[Mm]m|[Kk]m|[Kk]g|[Ll]bs?|[Ff]t|[Ii]n|[Mm]i|[MmGg])[ \t]*$\n?',
+    # 有汉字、无假名和谚文的行：已经是中文，不进翻译
+    r'^[ \t]*(?![^\n]*[\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7a3\uff66-\uff9d])'
+    r'(?=[^\n]*[\u3400-\u9fff])[^\n]*$\n?',
+    # 行首一两个字符的孤立碎片；放过单字母词、数字和带变音符的字母
+    r'^[ \t]*(?![AIaiyoeu\d\u00c0-\u00d6\u00d8-\u00f6\u00f8-\u00ff\u1ea0-\u1ef9][ \t])'
+    r'(\S)\1?[ \t]+(?=\S)',
+])
+# 一行在后文原样重现时，删掉靠前的那次
 DEDUP = r'(?m)^([ \t]*[^ \t\n][^\n]*)\n(?=(?:[^\n]*\n)*\1(?:\n|$))'
+# 连续空行
 BLANKS = r'(?m)(?:^[ \t]*\n)+'
+# 译文里的哨兵行；哨兵可能被翻译改写成别的符号
 UNSENTINEL = r'(?m)^[ \t]*(?:\u2e3b|[^\w\s]{1,3})[ \t]*(?=\n|$)'
+# 行尾没收句、下一行以小写字母开头：把硬换行并回空格
 JOIN = (r'(?m)([^.!?:;\u3002\uff01\uff1f\uff1a\uff1b\u17d4\u2e3b\n])\n'
         r'(?=[a-z\u00e0-\u00f6\u00f8-\u00ff\u0101-\u024f\u1e00-\u1eff])')
+# 长行没收句、下一行是中日韩等不用空格分词的文字：直接接上
 WRAP = (r'(?m)^([^\n]{20,}[^.!?:;\u3002\uff01\uff1f\uff1a\uff1b\u17d4\u2e3b\n])\n'
         r'(?=[\u0e00-\u0eff\u1000-\u109f\u1780-\u17ff'
         r'\u3040-\u30ff\u3400-\u9fff\uac00-\ud7a3])')
@@ -112,16 +133,16 @@ def end(group):
     return action('conditional', {'GroupingIdentifier': group, 'WFControlFlowMode': 2})
 
 
-def workflow(icon_color, actions, input_classes):
+def workflow(actions):
     return {
         'WFWorkflowMinimumClientVersionString': '900',
         'WFWorkflowMinimumClientVersion': 900,
-        'WFWorkflowIcon': {'WFWorkflowIconStartColor': icon_color, 'WFWorkflowIconGlyphNumber': 59729},
+        'WFWorkflowIcon': {'WFWorkflowIconStartColor': 946986751, 'WFWorkflowIconGlyphNumber': 59729},
         'WFWorkflowClientVersion': '4046.0.2.1.102',
         'WFWorkflowOutputContentItemClasses': [],
         'WFWorkflowHasOutputFallback': False,
         'WFWorkflowActions': actions,
-        'WFWorkflowInputContentItemClasses': input_classes,
+        'WFWorkflowInputContentItemClasses': ['WFImageContentItem'],
         'WFWorkflowTypes': ['ActionExtension', 'WFWorkflowTypeShowInSearch'],
         'WFWorkflowImportQuestions': [],
         'WFQuickActionSurfaces': [],
@@ -134,7 +155,7 @@ def workflow(icon_color, actions, input_classes):
 def source():
     src = '源图像'
     shot, top, height, crop, ocr, branch = (uid() for _ in range(6))
-    acts = [
+    return [
         when(SHARE_INPUT, branch),
         setvar(SHARE_INPUT, src),
         otherwise(branch),
@@ -159,8 +180,7 @@ def source():
         end(branch),
         action('extracttextfromimage', {
             'WFImage': attach(variable(src)), 'CustomOutputName': '提取文本', 'UUID': ocr}),
-    ]
-    return acts, ref(ocr, '提取文本')
+    ], ref(ocr, '提取文本')
 
 
 def cleanup(text):
@@ -172,31 +192,36 @@ def cleanup(text):
 
 
 def google(text):
-    """不用系统翻译（本可不出设备）：不支持的语言不报错，退化成罗马字音译——
-    有值不算失败，「空值才回退」在快捷指令里兜不住"""
     url = ('https://translate.googleapis.com/translate_a/single'
            '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET)
-    req, rows, loop, pieces, joined = (uid() for _ in range(5))
+    enc, body, req, rows, loop, pieces, joined = (uid() for _ in range(7))
     return [
+        action('urlencode', {'WFInput': tokens(text), 'WFEncodeMode': 'Encode',
+                             'CustomOutputName': '编码文本', 'UUID': enc}),
+        action('gettext', {'WFTextActionText': tokens('q=', ref(enc, '编码文本')),
+                           'CustomOutputName': '请求体', 'UUID': body}),
         action('downloadurl', {
             'WFURL': url,
             'WFHTTPMethod': 'POST',
-            'WFHTTPBodyType': 'Form',
-            'WFFormValues': {'Value': {'WFDictionaryFieldValueItems': [{
-                'WFItemType': 0,
-                'WFKey': {'Value': {'string': 'q'}, 'WFSerializationType': 'WFTextTokenString'},
-                'WFValue': tokens(text)}]},
+            'WFHTTPBodyType': 'File',
+            'WFRequestVariable': attach(ref(body, '请求体')),
+            'WFHTTPHeaders': {
+                'Value': {'WFDictionaryFieldValueItems': [{
+                    'WFItemType': 0,
+                    'WFKey': {'Value': {'string': 'Content-Type'},
+                              'WFSerializationType': 'WFTextTokenString'},
+                    'WFValue': {'Value': {'string':
+                                          'application/x-www-form-urlencoded'},
+                                'WFSerializationType': 'WFTextTokenString'}}]},
                 'WFSerializationType': 'WFDictionaryFieldValue'},
             'CustomOutputName': '接口响应', 'UUID': req}),
         action('getvalueforkey', {
             'WFInput': attach(ref(req, '接口响应')),
             'WFDictionaryKey': 'sentences', 'WFGetDictionaryValueType': 'Value',
             'CustomOutputName': '句子表', 'UUID': rows}),
-        # sentences 是字典列表，直接取键会弹「选取项目」，必须逐项遍历
         action('repeat.each', {
             'WFInput': attach(ref(rows, '句子表')),
             'GroupingIdentifier': loop, 'WFControlFlowMode': 0}),
-        # 输入必须显式引用：靠上一动作输出隐式串联在这里接不上，取值和拼接都会落空
         action('getvalueforkey', {
             'WFInput': attach({'Type': 'CurrentItem'}),
             'WFDictionaryKey': 'trans', 'WFGetDictionaryValueType': 'Value'}),
@@ -213,23 +238,20 @@ def google(text):
 def deliver(text):
     count, named, enough, translated = (uid() for _ in range(4))
     google_acts, google_out = google(text)
-    # 图标残迹、时间电量这类漏网的碎片往往只剩一两个字母，攒不够数就不值得翻译
     letters_act, letters = replace(text, r'[\W\d_]', '', '字母序列', False)
     restore_act, restored = replace(google_out, UNSENTINEL, '', '译文', False)
     return [
         letters_act,
-        action('count', {'Input': attach(letters), 'WFCountType': 'Characters',
-                         'CustomOutputName': '字母数', 'UUID': count}),
+        action('count', {'Input': attach(
+            letters), 'WFCountType': 'Characters', 'CustomOutputName': '字母数', 'UUID': count}),
         when(ref(count, '字母数'), enough, 2, WFNumberValue=MIN_LETTERS),
         *google_acts,
         restore_act,
         when(restored, translated),
         action('setclipboard', {'WFInput': attach(restored)}),
-        # 快速查看的窗口标题取自条目名，不改名会拿译文第一行当标题
         action('setitemname', {
             'WFInput': attach(restored), 'WFName': tokens(TITLE),
             'CustomOutputName': '展示稿', 'UUID': named}),
-        # 「显示结果」只在快捷指令编辑器里预览得到，从返回轻点或分享表单触发时一声不响
         action('previewdocument', {'WFInput': attach(ref(named, '展示稿'))}),
         otherwise(translated),
         action('setclipboard', {'WFInput': attach(text)}),
@@ -247,12 +269,12 @@ def deliver(text):
 def build():
     head, ocr_text = source()
     body, clean_text = cleanup(ocr_text)
-    return workflow(946986751, head + body + deliver(clean_text), ['WFImageContentItem'])
+    return workflow(head + body + deliver(clean_text))
 
 
-def verify(workflow):
+def verify(wf):
     """落盘前自检：引用完整性、条件块配平、占位符对齐、正则的 ASCII 约束"""
-    acts = workflow['WFWorkflowActions']
+    acts = wf['WFWorkflowActions']
     known = {a['WFWorkflowActionParameters']['UUID'] for a in acts
              if 'UUID' in a['WFWorkflowActionParameters']}
     errors, depth = [], 0
@@ -262,21 +284,23 @@ def verify(workflow):
             if node.get('Type') == 'ActionOutput' and node.get('OutputUUID') not in known:
                 errors.append('未定义的 OutputUUID')
             if node.get('WFSerializationType') == 'WFTextTokenString':
-                v = node['Value']
-                for pos in v.get('attachmentsByRange', {}):
-                    if v['string'][int(pos.strip('{}').split(',')[0])] != MARK:
+                value = node['Value']
+                for pos in value.get('attachmentsByRange', {}):
+                    start = int(pos.strip('{}').split(',')[0])
+                    if value['string'][start] != MARK:
                         errors.append('占位符错位 ' + pos)
-            for x in node.values():
-                check(x)
+            for child in node.values():
+                check(child)
         elif isinstance(node, list):
-            for x in node:
-                check(x)
+            for child in node:
+                check(child)
 
     for a in acts:
         params = a['WFWorkflowActionParameters']
         if a['WFWorkflowActionIdentifier'].endswith('.conditional'):
             depth += {0: 1, 1: 0, 2: -1}[params['WFControlFlowMode']]
-            assert depth >= 0
+            if depth < 0:
+                errors.append('条件块在开启前闭合')
         find = params.get('WFReplaceTextFind')
         if find and not find.isascii():
             errors.append('正则含非 ASCII')
@@ -286,13 +310,13 @@ def verify(workflow):
     assert not errors, errors
 
 
-def save(workflow, default_name):
+def save(wf, default_name):
     """落盘到命令行指定的路径，缺省写到当前目录"""
-    verify(workflow)
+    verify(wf)
     dst = sys.argv[1] if len(sys.argv) > 1 else default_name
     with open(dst, 'wb') as f:
-        plistlib.dump(workflow, f, fmt=plistlib.FMT_BINARY)
-    print('written:', dst, len(workflow['WFWorkflowActions']), 'actions')
+        plistlib.dump(wf, f, fmt=plistlib.FMT_BINARY)
+    print('written:', dst, len(wf['WFWorkflowActions']), 'actions')
 
 
 if __name__ == '__main__':
