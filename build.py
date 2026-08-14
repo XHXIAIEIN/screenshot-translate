@@ -7,15 +7,6 @@ SENTINEL = '⸻'
 TARGET = 'zh-CN'
 MIN_LETTERS = 3
 TITLE = '翻译结果'
-SRC = '源图像'
-DRAFT = '译稿'
-GOOGLE = ('https://translate.googleapis.com/translate_a/single'
-          '?client=gtx&dt=t&dj=1&sl=auto&tl=')
-# 正则必须全 ASCII（非 ASCII 会被导入工具拦下，verify 兜底），非拉丁字符一律写 \u 转义
-ZH = (r'(?m)^.*(?:zh|chinese|traditional'
-      r'|\u4e2d\u6587|\u7e41\u4f53|\u7e41\u9ad4'
-      r'|\u7ca4\u8bed|yue|cantonese).*$')
-ZH_MARK = 'ZHSKIP'
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
 NOISE = (r'(?m)[ \t]*(?:>=|=>|==|[>\u203a\u00bb\u2192\u2261\u22ee\u22ef\u2630\u2605\u2606\u2713\u2715\u2717\u00d7\u25a0\u25a1\u25aa\u25b8\u25be\u2699]+'
@@ -106,7 +97,7 @@ def replace(text, find, repl, name, case_sensitive=True):
 
 
 def when(value, group, condition=100, **extra):
-    # WFCondition：100 有值，'Contains' 包含，2 大于
+    # WFCondition：100 有值，'Contains' 包含，2 大于，4 等于
     return action('conditional', {
         'WFInput': {'Type': 'Variable', 'Variable': attach(value)},
         'WFCondition': condition,
@@ -125,8 +116,7 @@ def workflow(icon_color, actions, input_classes):
     return {
         'WFWorkflowMinimumClientVersionString': '900',
         'WFWorkflowMinimumClientVersion': 900,
-        'WFWorkflowIcon': {'WFWorkflowIconStartColor': icon_color,
-                           'WFWorkflowIconGlyphNumber': 59729},
+        'WFWorkflowIcon': {'WFWorkflowIconStartColor': icon_color, 'WFWorkflowIconGlyphNumber': 59729},
         'WFWorkflowClientVersion': '4046.0.2.1.102',
         'WFWorkflowOutputContentItemClasses': [],
         'WFWorkflowHasOutputFallback': False,
@@ -142,13 +132,11 @@ def workflow(icon_color, actions, input_classes):
 # --- 流程 ---
 
 def source():
+    src = '源图像'
     shot, top, height, crop, ocr, branch = (uid() for _ in range(6))
     acts = [
-        action('comment', {'WFCommentActionText':
-            '分享表单进来 = 翻译截图裁好的选区；直接运行 = 现场截屏并裁掉顶栏底栏，'
-            '得从返回轻点 / 操作按钮 / 辅助触控触发，否则截到的是快捷指令 App 自己'}),
         when(SHARE_INPUT, branch),
-        setvar(SHARE_INPUT, SRC),
+        setvar(SHARE_INPUT, src),
         otherwise(branch),
         action('takescreenshot', {'UUID': shot}),
         action('math', {
@@ -166,10 +154,10 @@ def source():
             'WFImageCropWidth': attach(ref(shot, '截屏', prop('Width'))),
             'WFImageCropHeight': attach(ref(height, '内容高度')),
             'CustomOutputName': '内容图像', 'UUID': crop}),
-        setvar(ref(crop, '内容图像'), SRC),
+        setvar(ref(crop, '内容图像'), src),
         end(branch),
         action('extracttextfromimage', {
-            'WFImage': attach(variable(SRC)), 'CustomOutputName': '提取文本', 'UUID': ocr}),
+            'WFImage': attach(variable(src)), 'CustomOutputName': '提取文本', 'UUID': ocr}),
     ]
     return acts, ref(ocr, '提取文本')
 
@@ -183,16 +171,17 @@ def cleanup(text):
 
 
 def google(text):
-    req, rows, loop, joined = (uid() for _ in range(4))
-    return ([
+    url = ('https://translate.googleapis.com/translate_a/single'
+           '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET)
+    req, rows, loop, pieces, joined = (uid() for _ in range(5))
+    return [
         action('downloadurl', {
-            'WFURL': GOOGLE + TARGET,
+            'WFURL': url,
             'WFHTTPMethod': 'POST',
             'WFHTTPBodyType': 'Form',
             'WFFormValues': {'Value': {'WFDictionaryFieldValueItems': [{
                 'WFItemType': 0,
-                'WFKey': {'Value': {'string': 'q'},
-                          'WFSerializationType': 'WFTextTokenString'},
+                'WFKey': {'Value': {'string': 'q'}, 'WFSerializationType': 'WFTextTokenString'},
                 'WFValue': tokens(text)}]},
                 'WFSerializationType': 'WFDictionaryFieldValue'},
             'CustomOutputName': '接口响应', 'UUID': req}),
@@ -200,53 +189,35 @@ def google(text):
             'WFInput': attach(ref(req, '接口响应')),
             'WFDictionaryKey': 'sentences', 'WFGetDictionaryValueType': 'Value',
             'CustomOutputName': '句子表', 'UUID': rows}),
-        # sentences 是字典列表，直接取键会弹「选取项目」，必须逐项遍历
         action('repeat.each', {
             'WFInput': attach(ref(rows, '句子表')),
             'GroupingIdentifier': loop, 'WFControlFlowMode': 0}),
+        # 输入必须显式引用：靠上一动作输出隐式串联在这里接不上，取值和拼接都会落空
         action('getvalueforkey', {
+            'WFInput': attach({'Type': 'CurrentItem'}),
             'WFDictionaryKey': 'trans', 'WFGetDictionaryValueType': 'Value'}),
         action('repeat.each', {
             'GroupingIdentifier': loop, 'WFControlFlowMode': 2,
-            'CustomOutputName': '译文片段'}),
+            'CustomOutputName': '译文片段', 'UUID': pieces}),
         action('text.combine', {
+            'text': attach(ref(pieces, '译文片段')),
             'WFTextSeparator': 'Custom', 'WFTextCustomSeparator': '',
             'CustomOutputName': '拼接译文', 'UUID': joined}),
-    ], ref(joined, '拼接译文'))
-
-
-def route(text):
-    """系统翻译试过又撤了：没装语言包时回空值，不支持的语言退化成罗马字音译——
-    后者有值不算失败，「空值才回退 Google」的判据抓不住它，非中文只能一律走 Google"""
-    lang, zh_branch = uid(), uid()
-    lang_ref = ref(lang, '语言')
-    mark_act, mark = replace(lang_ref, ZH, ZH_MARK, '免译判定', False)
-    google_acts, google_out = google(text)
-    return [
-        action('detectlanguage', {
-            'WFInput': tokens(text), 'CustomOutputName': '语言', 'UUID': lang}),
-        mark_act,
-        when(mark, zh_branch, 'Contains', WFConditionalActionString=tokens(ZH_MARK)),
-        setvar(text, DRAFT),
-        otherwise(zh_branch),
-        *google_acts,
-        setvar(google_out, DRAFT),
-        end(zh_branch),
-    ], lang_ref
+    ], ref(joined, '拼接译文')
 
 
 def deliver(text):
     count, named, enough, translated = (uid() for _ in range(4))
-    route_acts, lang_ref = route(text)
+    google_acts, google_out = google(text)
     # 图标残迹、时间电量这类漏网的碎片往往只剩一两个字母，攒不够数就不值得翻译
     letters_act, letters = replace(text, r'[\W\d_]', '', '字母序列', False)
-    restore_act, restored = replace(variable(DRAFT), UNSENTINEL, '', '译文', False)
+    restore_act, restored = replace(google_out, UNSENTINEL, '', '译文', False)
     return [
         letters_act,
         action('count', {'Input': attach(letters), 'WFCountType': 'Characters',
                          'CustomOutputName': '字母数', 'UUID': count}),
         when(ref(count, '字母数'), enough, 2, WFNumberValue=MIN_LETTERS),
-        *route_acts,
+        *google_acts,
         restore_act,
         when(restored, translated),
         action('setclipboard', {'WFInput': attach(restored)}),
@@ -257,10 +228,9 @@ def deliver(text):
         # 「显示结果」只在快捷指令编辑器里预览得到，从返回轻点或分享表单触发时一声不响
         action('previewdocument', {'WFInput': attach(ref(named, '展示稿'))}),
         otherwise(translated),
-        # 译空了就留原文，顺带报出检测到的语言——免译名单该添哪一条，看这个就知道
         action('setclipboard', {'WFInput': attach(text)}),
         action('notification', {
-            'WFNotificationActionBody': tokens('没译出来，原文已复制。检测到的语言：', lang_ref),
+            'WFNotificationActionBody': '没译出来，原文已复制',
             'WFNotificationActionSound': False}),
         end(translated),
         otherwise(enough),

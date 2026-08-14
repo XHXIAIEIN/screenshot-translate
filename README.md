@@ -14,11 +14,10 @@ iOS 快捷指令：截屏 → OCR → 文本清洗 → 中文免译、其余走 
 
 ## 安装
 
-未签名的 `.shortcut` 不能直接导入——iOS 15 起系统不再允许在设备上签名，这一步只能交给第三方工具。`installer.py` 生成的 `导入快捷指令.shortcut` 把这件事收成一个动作：接住分享过来的文件，转交 [Shortcut Source Helper](https://routinehub.co/shortcut/10060/) 远程签名，签完自动加入快捷指令库，名字取自文件名。
+未签名的 `.shortcut` 不能直接导入——iOS 15 起系统不再允许在设备上签名，签名只能出设备。`installer.py` 生成的 `导入快捷指令.shortcut` 把这件事收成一个动作：接住分享过来的文件，gzip 后发给远程签名服务（[Shortcut Source Helper](https://routinehub.co/shortcut/10060/) 里「Remote Sign」的同款通道），签好的文件直接交给快捷指令 App，名字取自文件名。全程不弹菜单，也不依赖其他快捷指令。
 
-1. 安装 [Shortcut Source Helper](https://routinehub.co/shortcut/10060/)——签名由它完成，长期留着
-2. 安装 [Shortcut Source Tool](https://routinehub.co/shortcut/5256/)——只用来装下面这一个，装完可以删
-3. 按「首次导入」把 `导入快捷指令.shortcut` 装进去
+1. 安装 [Shortcut Source Tool](https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051) 和它依赖的 [Shortcut Source Helper](https://www.icloud.com/shortcuts/7125fde0360a49f5994d02fb6d1b1fbd)——只为引导下面这一步，装完都可以删
+2. 按「首次导入」把 `导入快捷指令.shortcut` 装进去
 
 ## 日常导入
 
@@ -28,13 +27,12 @@ iOS 快捷指令：截屏 → OCR → 文本清洗 → 中文免译、其余走 
 
 `导入快捷指令` 自己也是未签名的，得靠 Shortcut Source Tool 引导一次：
 
-1. 用 Shortcut Source Tool 打开 `导入快捷指令.shortcut`
-2. 选择 **Edit/Restore Source**
-3. 选择 **Skip**
-4. 点击右上角 ☑️ 按钮，为 shortcut 命名后点击 **Done**
-5. 选择 **Remote Sign**，签名完成后即加入快捷指令库
-
-导入后打开它检查「运行快捷指令」那一步指向的是不是 Shortcut Source Helper——快捷指令之间的引用靠内部 ID，跨设备可能对不上，对不上就手动选一次。
+1. 把 `导入快捷指令.shortcut` 存进「文件」，然后在快捷指令 App 里运行 Shortcut Source Tool
+2. 在 **Get Shortcut Source from** 菜单里选 **📝 File**，选中刚存的文件。不要选 **💫 Shortcut**——那是搜索已经装进库的快捷指令，此时库里还没有，只会得到 "No shortcuts found"
+3. 选择 **Edit/Restore Source**
+4. 选择 **Skip**
+5. 点击右上角 ☑️ 按钮，为 shortcut 命名后点击 **Done**
+6. 选择 **Remote Sign**，签名完成后即加入快捷指令库
 
 ## 自定义
 
