@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# 第三方成品，从 routinehub 安装（见 README）
+Shortcut Source Helper.shortcut
+Shortcut Source Tool.shortcut
