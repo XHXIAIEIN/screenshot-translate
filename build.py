@@ -139,6 +139,7 @@ def source():
         setvar(SHARE_INPUT, src),
         otherwise(branch),
         action('takescreenshot', {'UUID': shot}),
+        # 比例写 E 记数法：小数点在部分地区解析有歧义，小数写法会被导入工具拦下
         action('math', {
             'WFInput': attach(ref(shot, '截屏', prop('Height'))),
             'WFMathOperation': '×', 'WFMathOperand': '13E-2',
@@ -171,6 +172,8 @@ def cleanup(text):
 
 
 def google(text):
+    """不用系统翻译（本可不出设备）：不支持的语言不报错，退化成罗马字音译——
+    有值不算失败，「空值才回退」在快捷指令里兜不住"""
     url = ('https://translate.googleapis.com/translate_a/single'
            '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET)
     req, rows, loop, pieces, joined = (uid() for _ in range(5))
@@ -189,6 +192,7 @@ def google(text):
             'WFInput': attach(ref(req, '接口响应')),
             'WFDictionaryKey': 'sentences', 'WFGetDictionaryValueType': 'Value',
             'CustomOutputName': '句子表', 'UUID': rows}),
+        # sentences 是字典列表，直接取键会弹「选取项目」，必须逐项遍历
         action('repeat.each', {
             'WFInput': attach(ref(rows, '句子表')),
             'GroupingIdentifier': loop, 'WFControlFlowMode': 0}),
