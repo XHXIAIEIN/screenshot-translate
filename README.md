@@ -7,16 +7,10 @@ iOS 快捷指令：截屏 → OCR → Google 翻译 → 复制并弹窗显示。
 
 ## 安装
 
-iOS 不接受未签名的 `.shortcut`，所以先装好本仓库的「导入快捷指令」——以后任何 `.shortcut` 都由它一键导入。
+1. 安装 [导入快捷指令](https://www.icloud.com/shortcuts/871595eda2a749d989ccae36cfb7670d)——iOS 不接受未签名的 `.shortcut`，它负责远程签名并装进库
+2. 把 `截图翻译.shortcut` 传到 iPhone（微信 / Telegram / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**
 
-首次安装（两个工具装完都可以删）：
-
-1. 安装 [Shortcut Source Tool](https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051) 和 [Shortcut Source Helper](https://www.icloud.com/shortcuts/7125fde0360a49f5994d02fb6d1b1fbd)
-2. 把 `导入快捷指令.shortcut` 存进「文件」
-3. 运行 Shortcut Source Tool，选 **📝 File**（不要选 💫 Shortcut），选中刚存的文件
-4. 依次选 **Edit/Restore Source** → **Skip** → 右上角 ☑️ → 命名 → **Done** → **Remote Sign**，完成后自动进入快捷指令库
-
-之后导入就是一个动作：把 `.shortcut` 传到 iPhone（微信 / AirDrop 均可），在「文件」里长按 → **共享** → **导入快捷指令**。用它装好 `截图翻译.shortcut`，完成。
+以后装本仓库任何 `.shortcut` 都是第 2 步一个动作。
 
 ## 用法
 
@@ -27,7 +21,7 @@ iOS 不接受未签名的 `.shortcut`，所以先装好本仓库的「导入快�
 
 文本发给 Google 的公开翻译端点（**出设备**），介意的话别用。
 
-## 自定义
+## 从源码构建
 
 改 `build.py` 后重新运行 `python build.py` 生成：
 
@@ -35,6 +29,8 @@ iOS 不接受未签名的 `.shortcut`，所以先装好本仓库的「导入快�
 - `MIN_LETTERS`：起译门槛
 - `TITLE`：弹窗标题
 - 清洗正则、裁剪比例：见文件头部和 `source()`
+
+生成的文件未签名，照常用「导入快捷指令」安装。「导入快捷指令」自身由 `installer.py` 生成，更新它时用库里的旧版装新版即可。
 
 ## License
 
