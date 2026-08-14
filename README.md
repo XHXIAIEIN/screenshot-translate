@@ -18,7 +18,11 @@ iOS 快捷指令：截屏 → OCR → 文本清洗 → 系统翻译 → 复制�
 
 1. iPhone 安装 Shortcut Source Tool 及配套的 Shortcut Source Helper
 2. 把 `截图翻译.shortcut` 传到 iPhone（微信 / AirDrop / 文件均可）
-3. 用 Shortcut Source Tool 打开，签名后加入快捷指令库
+3. 用 Shortcut Source Tool 打开该文件：
+   1. 选择 **Edit/Restore Source**
+   2. 选择 **Skip**
+   3. 点击右上角 ☑️ 按钮，为 shortcut 命名后点击 **Done**
+   4. 选择 **Remote Sign**，签名完成后即加入快捷指令库
 
 ## 自定义
 
