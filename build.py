@@ -192,28 +192,19 @@ def cleanup(text):
 
 
 def google(text):
+    """不用系统翻译（本可不出设备）：不支持的语言不报错，退化成罗马字音译——
+    有值不算失败，「空值才回退」在快捷指令里兜不住"""
     url = ('https://translate.googleapis.com/translate_a/single'
-           '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET)
-    enc, body, req, rows, loop, pieces, joined = (uid() for _ in range(7))
+           '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET + '&q=')
+    enc, req, rows, loop, pieces, joined = (uid() for _ in range(6))
     return [
+        # 文本编码后拼进 URL 走 GET。POST 的坑趟遍了：「表单」体实为 multipart，
+        # 接口只认 urlencoded；「文件」体的自定义 Content-Type 头不生效——
+        # 两种都拿到 400 错误页，动作不报错，最终表现为译文为空
         action('urlencode', {'WFInput': tokens(text), 'WFEncodeMode': 'Encode',
                              'CustomOutputName': '编码文本', 'UUID': enc}),
-        action('gettext', {'WFTextActionText': tokens('q=', ref(enc, '编码文本')),
-                           'CustomOutputName': '请求体', 'UUID': body}),
         action('downloadurl', {
-            'WFURL': url,
-            'WFHTTPMethod': 'POST',
-            'WFHTTPBodyType': 'File',
-            'WFRequestVariable': attach(ref(body, '请求体')),
-            'WFHTTPHeaders': {
-                'Value': {'WFDictionaryFieldValueItems': [{
-                    'WFItemType': 0,
-                    'WFKey': {'Value': {'string': 'Content-Type'},
-                              'WFSerializationType': 'WFTextTokenString'},
-                    'WFValue': {'Value': {'string':
-                                          'application/x-www-form-urlencoded'},
-                                'WFSerializationType': 'WFTextTokenString'}}]},
-                'WFSerializationType': 'WFDictionaryFieldValue'},
+            'WFURL': tokens(url, ref(enc, '编码文本')),
             'CustomOutputName': '接口响应', 'UUID': req}),
         action('getvalueforkey', {
             'WFInput': attach(ref(req, '接口响应')),
