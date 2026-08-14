@@ -191,13 +191,19 @@ def cleanup(text):
     return acts, text
 
 
+AS_TEXT = [{'Type': 'WFCoercionVariableAggrandizement',
+            'CoercionItemClass': 'WFStringContentItem'}]
+# 响应 JSON 里的译文值；转义序列整体吞进捕获组
+TRANS = r'"trans":"((?:[^"\\]|\\.)*)"'
+
+
 def google(text):
     """不用系统翻译（本可不出设备）：不支持的语言不报错，退化成罗马字音译——
     有值不算失败，「空值才回退」在快捷指令里兜不住"""
     url = ('https://translate.googleapis.com/translate_a/single'
            '?client=gtx&dt=t&dj=1&sl=auto&tl=' + TARGET + '&q=')
-    enc, req, rows, loop, pieces, joined = (uid() for _ in range(6))
-    return [
+    enc, req, match, groups, joined = (uid() for _ in range(5))
+    acts = [
         # 文本编码后拼进 URL 走 GET。POST 的坑趟遍了：「表单」体实为 multipart，
         # 接口只认 urlencoded；「文件」体的自定义 Content-Type 头不生效——
         # 两种都拿到 400 错误页，动作不报错，最终表现为译文为空
@@ -206,24 +212,29 @@ def google(text):
         action('downloadurl', {
             'WFURL': tokens(url, ref(enc, '编码文本')),
             'CustomOutputName': '接口响应', 'UUID': req}),
-        action('getvalueforkey', {
-            'WFInput': attach(ref(req, '接口响应')),
-            'WFDictionaryKey': 'sentences', 'WFGetDictionaryValueType': 'Value',
-            'CustomOutputName': '句子表', 'UUID': rows}),
-        action('repeat.each', {
-            'WFInput': attach(ref(rows, '句子表')),
-            'GroupingIdentifier': loop, 'WFControlFlowMode': 0}),
-        action('getvalueforkey', {
-            'WFInput': attach({'Type': 'CurrentItem'}),
-            'WFDictionaryKey': 'trans', 'WFGetDictionaryValueType': 'Value'}),
-        action('repeat.each', {
-            'GroupingIdentifier': loop, 'WFControlFlowMode': 2,
-            'CustomOutputName': '译文片段', 'UUID': pieces}),
+        # 「获取词典值」加逐项循环在设备上取不出译文（请求和取键都成功，循环
+        # 聚合为空）：改把响应当文本，正则一次抽出全部 trans，绕开字典和循环
+        action('text.match', {
+            'WFMatchTextPattern': TRANS,
+            'text': tokens(ref(req, '接口响应', AS_TEXT)),
+            'CustomOutputName': '匹配', 'UUID': match}),
+        action('text.match.getgroup', {
+            'matches': attach(ref(match, '匹配')),
+            'WFGetGroupType': 'All Groups',
+            'CustomOutputName': '译文组', 'UUID': groups}),
         action('text.combine', {
-            'text': attach(ref(pieces, '译文片段')),
+            'text': attach(ref(groups, '译文组')),
             'WFTextSeparator': 'Custom', 'WFTextCustomSeparator': '',
             'CustomOutputName': '拼接译文', 'UUID': joined}),
-    ], ref(joined, '拼接译文')
+    ]
+    # 译文值仍是 JSON 字符串字面量：还原常见转义，罕见的 \uXXXX 残留不管
+    out = ref(joined, '拼接译文')
+    for name, find, repl in [('还原换行', r'\\n', '\n'),
+                             ('还原引号', r'\\"', '"'),
+                             ('还原撇号', r'\\u0027', "'")]:
+        act, out = replace(out, find, repl, name, False)
+        acts.append(act)
+    return acts, out
 
 
 def deliver(text):
