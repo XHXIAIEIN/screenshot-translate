@@ -5,8 +5,9 @@ import uuid
 MARK = '￼'  # 对象替换字符，标记文本模板里附件的插入点
 SENTINEL = '⸻'  # 翻译接口会吞空行：段落间隔先换成哨兵行，译完再还原
 TARGET = 'zh-CN'
-MIN_LETTERS = 3
+MIN_LETTERS = 2
 TITLE = '翻译结果'
+BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
 # --- 清理规则 ---
@@ -237,11 +238,62 @@ def google(text):
     return acts, out
 
 
-def deliver(text):
-    count, named, enough, translated = (uid() for _ in range(4))
+def interleave(orig, trans):
+    """把译文逐行配到原文行下面：两行一组，组间空行。
+    接口在各语言下都保留换行，译文与原文行数对齐；哨兵字形可能被改写，
+    换行是唯一可靠的配对锚点。「当前项」在文本模板里于设备上解析为空
+    （字典循环链的旧坑同源）：循环只计次，原文译文各设余量变量，每轮掐头配对"""
+    o_rest, t_rest, out = '待配原文', '待配译文', '对照稿'
+    blank, lines, loop, piece = (uid() for _ in range(4))
+    o_head_act, o_head = replace(variable(o_rest), r'(?s)\n.*', '', '原文首行')
+    o_tail_act, o_tail = replace(variable(o_rest), r'\A[^\n]*\n?', '', '原文余量')
+    t_head_act, t_head = replace(variable(t_rest), r'(?s)\n.*', '', '译文首行')
+    t_tail_act, t_tail = replace(variable(t_rest), r'\A[^\n]*\n?', '', '译文余量')
+    acts = [
+        action('gettext', {'WFTextActionText': '', 'CustomOutputName': '空白', 'UUID': blank}),
+        setvar(ref(blank, '空白'), out),
+        setvar(orig, o_rest),
+        setvar(trans, t_rest),
+        action('text.split', {'text': tokens(orig), 'WFTextSeparator': 'New Lines',
+                              'CustomOutputName': '原文行', 'UUID': lines}),
+        action('repeat.each', {'WFInput': attach(ref(lines, '原文行')),
+                               'GroupingIdentifier': loop, 'WFControlFlowMode': 0}),
+        o_head_act,
+        o_tail_act,
+        setvar(o_tail, o_rest),
+        t_head_act,
+        t_tail_act,
+        setvar(t_tail, t_rest),
+        action('gettext', {
+            'WFTextActionText': tokens(variable(out), o_head, '\n', t_head, '\n\n'),
+            'CustomOutputName': '对照累积', 'UUID': piece}),
+        setvar(ref(piece, '对照累积'), out),
+        action('repeat.each', {'GroupingIdentifier': loop, 'WFControlFlowMode': 2}),
+    ]
+    # 哨兵行连同配对行整组删掉：组间空行已承担分段
+    strip_act, stripped = replace(variable(out), r'(?m)^\u2e3b\n[^\n]*\n{1,2}', '', '删哨兵组')
+    tidy_act, tidied = replace(stripped, r'\n{3,}', '\n\n', '收空行')
+    return acts + [strip_act, tidy_act], tidied
+
+
+def toggle():
+    """对照开关放在最前面：在快捷指令编辑器里改这个数字即可切换模式"""
+    num = uid()
+    return [
+        action('comment', {'WFCommentActionText': '对照开关：1 逐行对照，0 只显示译文'}),
+        action('number', {'WFNumberActionNumber': BILINGUAL,
+                          'CustomOutputName': '对照开关', 'UUID': num}),
+        setvar(ref(num, '对照开关'), '对照开关'),
+    ], variable('对照开关')
+
+
+def deliver(text, switch):
+    count, pair_doc, plain_doc, enough, translated, mode = (uid() for _ in range(6))
     google_acts, google_out = google(text)
     letters_act, letters = replace(text, r'[\W\d_]', '', '字母序列', False)
     restore_act, restored = replace(google_out, UNSENTINEL, '', '译文', False)
+    # 成败以纯译文判断；对照稿在确认有译文后才拼
+    pair_acts, paired = interleave(text, google_out)
     return [
         letters_act,
         action('count', {'Input': attach(
@@ -250,11 +302,20 @@ def deliver(text):
         *google_acts,
         restore_act,
         when(restored, translated),
+        when(switch, mode, 4, WFNumberValue=1),
+        *pair_acts,
+        action('setclipboard', {'WFInput': attach(paired)}),
+        action('setitemname', {
+            'WFInput': attach(paired), 'WFName': tokens('对照结果'),
+            'CustomOutputName': '对照展示稿', 'UUID': pair_doc}),
+        action('previewdocument', {'WFInput': attach(ref(pair_doc, '对照展示稿'))}),
+        otherwise(mode),
         action('setclipboard', {'WFInput': attach(restored)}),
         action('setitemname', {
             'WFInput': attach(restored), 'WFName': tokens(TITLE),
-            'CustomOutputName': '展示稿', 'UUID': named}),
-        action('previewdocument', {'WFInput': attach(ref(named, '展示稿'))}),
+            'CustomOutputName': '展示稿', 'UUID': plain_doc}),
+        action('previewdocument', {'WFInput': attach(ref(plain_doc, '展示稿'))}),
+        end(mode),
         otherwise(translated),
         action('setclipboard', {'WFInput': attach(text)}),
         action('notification', {
@@ -269,9 +330,10 @@ def deliver(text):
 
 
 def build():
+    switch_acts, switch = toggle()
     head, ocr_text = source()
     body, clean_text = cleanup(ocr_text)
-    return workflow(head + body + deliver(clean_text))
+    return workflow(switch_acts + head + body + deliver(clean_text, switch))
 
 
 def verify(wf):
