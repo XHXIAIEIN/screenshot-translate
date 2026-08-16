@@ -352,7 +352,7 @@ def deliver(text, switch):
         setvar(undoc, lines),
         end(raw_json),
         *pair_acts,
-        when(switch, mode, 4, WFNumberValue=1),
+        when(switch, mode, 4, WFConditionalActionString='1'),
         strip_act,
         *show(paired, '对照结果', '对照展示稿'),
         otherwise(mode),
@@ -378,13 +378,14 @@ def deliver(text, switch):
 
 
 def toggle():
-    """对照开关，在快捷指令编辑器里改这个数字切换模式"""
-    num = uid()
+    """对照开关，在快捷指令编辑器里改这个值切换模式"""
+    val = uid()
     return [
         action('comment', {'WFCommentActionText': '对照开关：1 逐行对照，0 只显示译文'}),
-        action('number', {'WFNumberActionNumber': BILINGUAL,
-                          'CustomOutputName': '对照开关', 'UUID': num}),
-        setvar(ref(num, '对照开关'), '对照开关'),
+        # 数字动作归在计算器名下，快捷指令会拿计算器图标盖掉自选图标，所以用文本存
+        action('gettext', {'WFTextActionText': str(BILINGUAL),
+                           'CustomOutputName': '对照开关', 'UUID': val}),
+        setvar(ref(val, '对照开关'), '对照开关'),
     ], variable('对照开关')
 
 
