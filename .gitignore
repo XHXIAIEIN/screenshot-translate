@@ -1,9 +1,5 @@
 __pycache__/
 *.pyc
 
-# 第三方成品，从 routinehub 安装（见 README）
-Shortcut Source Helper.shortcut
-Shortcut Source Tool.shortcut
-
-# 本地调试脚本，不随仓库分发
+.local/
 scripts/
