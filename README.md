@@ -30,9 +30,9 @@ python build.py
 
 iOS 不允许直接导入未签名的快捷指令文件，需借助辅助快捷指令：
 
-1. 安装 [Shortcut Installer](https://www.icloud.com/shortcuts/9918c1c856c049b4beb7918904b1fe0d)，它由本仓库的 `installer.py` 生成。
+1. 安装[「安装快捷指令」](https://www.icloud.com/shortcuts/9918c1c856c049b4beb7918904b1fe0d)，它由本仓库的 `installer.py` 生成。
 2. 把 `截图翻译.shortcut` 传到 iPhone（AirDrop、微信、QQ、Telegram 均可）。
-3. 选中该文件（不必先存进「文件」App），轻点 **共享** > **Shortcut Installer**。
+3. 选中该文件（不必先存进「文件」App），轻点 **共享** > **安装快捷指令**。
 
 ## Legal
 
@@ -40,7 +40,7 @@ Apple, iOS, and Shortcuts are trademarks of Apple Inc. This project is not affil
 
 ## Credits
 
-Shortcut Installer 的远程签名服务来自 @gluebyte 的两个快捷指令：
+「安装快捷指令」的远程签名服务来自 @gluebyte 的两个快捷指令：
 
 * [Shortcut Source Tool](https://routinehub.co/shortcut/5256/)
 * [Shortcut Source Helper](https://routinehub.co/shortcut/10060/)

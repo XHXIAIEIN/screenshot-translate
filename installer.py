@@ -1,4 +1,4 @@
-"""生成 Shortcut Installer：把未签名的 .shortcut 送远程签名，签好直接进快捷指令库"""
+"""生成「安装快捷指令」：把未签名的 .shortcut 送远程签名，签好直接进快捷指令库"""
 
 from build import SHARE_INPUT, action, attach, end, otherwise, ref, save, tokens, uid, when, workflow
 
@@ -64,13 +64,13 @@ def build():
         otherwise(branch),
         action('alert', {'WFAlertActionTitle': '没有拿到文件',
                          'WFAlertActionMessage':
-                             '请选择一个 .shortcut 文件，然后「共享」→「Shortcut Installer」',
+                             '请选择一个 .shortcut 文件，然后「共享」→「安装快捷指令」',
                          'WFAlertActionCancelButtonShown': False}),
         end(branch),
         # 粉底 #ED4694 配圆圈下箭头：和截图翻译的蓝底引号在网格里分得开
-    ], icon_color=3980825855, icon_glyph=59692,
+    ], icon_color=3980825855, icon_glyph=61440,
         input_classes=['WFGenericFileContentItem'])
 
 
 if __name__ == '__main__':
-    save(build(), 'Shortcut Installer.shortcut')
+    save(build(), '安装快捷指令.shortcut')
