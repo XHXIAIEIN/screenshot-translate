@@ -1,6 +1,6 @@
 # 截图翻译
 
-截图翻译是一个 iOS 快捷指令：截取屏幕、识别文字，用 Google 翻译译成中文，结果以弹窗显示并复制到剪贴板。全部使用系统自带动作，不依赖第三方 App。
+截图翻译是一个 iOS 快捷指令：截取屏幕、识别文字，用 Google 翻译成中文，结果以弹窗显示并复制到剪贴板。全部使用系统自带动作，不依赖第三方 App。
 
 ## 安装
 
@@ -34,12 +34,13 @@ iOS 不允许直接导入未签名的快捷指令文件，需借助辅助快捷�
 2. 把 `截图翻译.shortcut` 传到 iPhone（AirDrop、微信、QQ、Telegram 均可）。
 3. 选中该文件（不必先存进「文件」App），轻点 **共享** > **Shortcut Installer**。
 
-## License
+## Legal
 
-MIT
-
-本项目与 Apple Inc. 无关。
+Apple, iOS, and Shortcuts are trademarks of Apple Inc. This project is not affiliated with or endorsed by Apple.
 
 ## Credits
 
-签名与导入依赖 [Shortcut Source Tool](https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051) 和 [Shortcut Source Helper](https://www.icloud.com/shortcuts/7125fde0360a49f5994d02fb6d1b1fbd)。
+Shortcut Installer 的远程签名服务来自 @gluebyte 的两个快捷指令：
+
+* [Shortcut Source Tool](https://routinehub.co/shortcut/5256/)
+* [Shortcut Source Helper](https://routinehub.co/shortcut/10060/)
