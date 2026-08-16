@@ -1,4 +1,4 @@
-"""生成「导入快捷指令」：把未签名的 .shortcut 送远程签名，签好直接进快捷指令库。"""
+"""生成 Shortcut Installer：把未签名的 .shortcut 送远程签名，签好直接进快捷指令库"""
 
 from build import SHARE_INPUT, action, attach, end, otherwise, ref, save, tokens, uid, when, workflow
 
@@ -20,10 +20,10 @@ def build():
     resp_text = ref(req, '签名响应', [
         {'Type': 'WFCoercionVariableAggrandizement',
          'CoercionItemClass': 'WFStringContentItem'}])
-    return workflow(3980825855, [
+    return workflow([
         action('comment', {'WFCommentActionText':
-                           '这个快捷指令自身未签名，首次导入需要安装 Shortcut Source Tool 以及 Shortcut Source Helper 的远程签名服务。'
-                           '装完即可删除：\n'
+                           '这个快捷指令自身未签名，首次导入需要 Shortcut Source Tool 以及 Shortcut Source Helper 的远程签名服务。'
+                           '两者装好后即可删除：\n'
                            '\n'
                            'Shortcut Source Tool：\n'
                            'https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051'
@@ -58,17 +58,17 @@ def build():
         otherwise(ok),
         action('alert', {'WFAlertActionTitle': '签名失败',
                          'WFAlertActionMessage': tokens(
-                             '远程签名服务没签出来，稍后再试。服务端响应：\n', resp_text),
+                             '远程签名服务异常，稍后再试。服务端响应：\n', resp_text),
                          'WFAlertActionCancelButtonShown': False}),
         end(ok),
         otherwise(branch),
         action('alert', {'WFAlertActionTitle': '没有拿到文件',
                          'WFAlertActionMessage':
-                             '请选择一个 .shortcut 文件，然后选择「共享」→「导入快捷指令」',
+                             '请选择一个 .shortcut 文件，然后「共享」→「Shortcut Installer」',
                          'WFAlertActionCancelButtonShown': False}),
         end(branch),
-    ], ['WFGenericFileContentItem'])
+    ], icon_color=3980825855, input_classes=['WFGenericFileContentItem'])
 
 
 if __name__ == '__main__':
-    save(build(), '导入快捷指令.shortcut')
+    save(build(), 'Shortcut Installer.shortcut')

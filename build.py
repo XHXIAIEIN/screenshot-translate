@@ -7,17 +7,17 @@ SENTINEL = '⸻'  # 空行会让接口产生空 q：段落间隔先换成哨兵�
 TARGET = 'zh-CN'
 MIN_LETTERS = 2  # 词长不超过该值的拉丁词不算翻译内容：人名、代号常见此形
 TITLE = '翻译结果'
-BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
-# 自动截屏后上下各裁掉的像素（3 倍图）。缺省不裁：状态栏那点文字由清理规则
-# 兜住，而工具栏高度因 App 而异，裁一半会让 OCR 读出半截字符。某个 App 的
-# 头尾总混进结果时，在这里整条裁掉（工具栏连横条约 250px）
+ORIGINAL = '原文'  # 没有译文可给时的展示标题
+BILINGUAL = 1  # 对照开关的缺省值：1 逐行对照，0 只显示译文
+# 自动截屏后上下各裁掉的像素（3 倍图）。缺省不裁，状态栏由清理规则兜住；
+# 某个 App 的头尾总混进结果时在这里整条裁掉（工具栏连横条约 250px）
 TOP_INSET = 0
 BOTTOM_INSET = 0
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
 # --- 清理规则 ---
-# 正则在快捷指令的替换动作里执行；replace() 落盘时把非 ASCII 字符
-# 转成 \uXXXX 转义（verify 兜底强制），源码里直接写字符即可
+# 正则在快捷指令的替换动作里执行；replace() 落盘时把非 ASCII 转成 \uXXXX
+# 转义，源码里直接写字符即可
 
 NOISE = '(?m)' + '|'.join([
     # 行尾的箭头、勾叉、图标类符号，或连串的点
@@ -40,9 +40,8 @@ NOISE = '(?m)' + '|'.join([
     # 有汉字、无假名和谚文的行：已经是中文，不进翻译
     r'^[ \t]*(?![^\n]*[぀-ヿㇰ-ㇿ가-힣ｦ-ﾝ])'
     r'(?=[^\n]*[㐀-鿿])[^\n]*$\n?',
-    # 行首一两个字符的孤立碎片；放过单字母词（大小写都算：U up? 也是句子）、
-    # 数字、货币符号（OCR 常把 $50 拆成 $ 50）、带变音符的字母，
-    # 以及谚文假名这类单字成词的文字（只清 ASCII 碎片和符号）
+    # 行首一两个字符的孤立碎片。只清 ASCII 碎片和符号，放过单字母词、
+    # 数字、货币符号（OCR 常把 $50 拆成 $ 50）和带变音符的字母
     r'^[ \t]*(?![AEIOUYaeiouy\d$¥€£₩À-ÖØ-öø-ÿẠ-ỹ][ \t])'
     r'(?=[\x00-\x7f]|[^\w])'
     r'(\S)\1?[ \t]+(?=\S)',
@@ -63,8 +62,6 @@ WRAP = (r'(?m)^([^\n]{20,}[^.!?:;。！？：；។⸻\n])\n'
 
 CLEAN = [
     ('去噪文本', NOISE, '', True),
-    # 行首图标碎片剥掉后才露出整行规则的目标（「| 160 cm」→「160 cm」）：
-    # 同一动作里各规则不回看彼此的产物，残行要再过一遍
     ('二次去噪', NOISE, '', True),
     ('去重文本', DEDUP, '', True),
     ('整理文本', BLANKS, SENTINEL + '\n', False),
@@ -75,21 +72,22 @@ CLEAN = [
 # --- 翻译门槛与响应解析 ---
 
 LATIN = r'A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ'
-# 孤立的短拉丁词串；剔掉它们再剔掉标点数字，剩下的才算翻译内容
-SHORT_WORDS = (r'(?<![{L}])[{L}]{{1,{n}}}(?![{L}])'
-               .format(L=LATIN, n=MIN_LETTERS))
+# 剔掉孤立的短拉丁词，再剔掉标点数字，剩下的才算翻译内容。两条并作一趟：
+# 后半是无上下文的字符类，前半的边界断言看的始终是原文，分两趟没有区别
+GIST = (r'(?<![{L}])[{L}]{{1,{n}}}(?![{L}])|[\W\d_]'
+        .format(L=LATIN, n=MIN_LETTERS))
 
-# 每行裹一份原文随行送回；<br> 把两份文本隔成两段，
-# 缺了它模型会把原文连读进译文，短句译文折损（ありがとう → 非常）
+# 每行裹一份原文随行送回。<br> 把两份文本隔成两段，缺了它
+# 模型会把原文连读进译文，短句译文折损（ありがとう → 非常）
 WRAP_LINE = '<span translate="no">$1</span><br>$1'
 
 # 响应是 JSON 数组，每行原文对应一个元素：
 #   ["<span translate=\"no\">原文</span><br>译文","语言"]
-# 设备上响应多半已被解析成列表、拼回逐行文本：括号引号剥掉，语言码独占一行。
+# 设备上多半已被解析成列表、拼回逐行文本：括号引号剥掉，语言码独占一行。
 # 解析不生效时进来的才是原始 JSON，先经 UNESCAPE 反转义成同样的逐行文本；
-# 解析过的文本不能再走这四步——原文里字面的 \" 和 ["…"] 会被误当转义吞掉。
-# 之后 PAIRING 把逐行文本整形成对照稿：原文行在上、译文行在下、块间空行。
-# 译文缺失的块缩成单行原文——翻译丢了也不丢内容
+# 解析过的文本不能再走这四步——字面的 \" 和 ["…"] 会被误当转义吞掉。
+# 之后 PAIRING 整形成对照稿：原文行在上、译文行在下、块间空行，
+# 译文缺失的块缩成单行原文
 
 UNESCAPE = [
     # 每个元素独占一行；语言码等尾巴一并吃掉，防备接口添字段
@@ -100,6 +98,8 @@ UNESCAPE = [
     # JSON 里一个反斜杠写作两个；ICU 替换模板里也是
     ('还原反斜杠', r'\\\\', '\\\\', True),
 ]
+# 成败判据：包装标记原样回来，才说明接口真的应答了
+PAIR_MARK = '<span translate='
 # 形态判据：span 属性上的转义引号只存在于未解析的原始 JSON 里
 ESCAPE_MARK = 'translate=\\"'
 
@@ -123,9 +123,11 @@ PAIRING = [
     ('收空行', r'\n{3,}', '\n\n', True),
     # 哨兵行的译文没有意义
     ('缩哨兵', r'(?m)^(⸻)\n[^\n]+$', '$1', True),
-    # 原文没有拉丁字母、译文却是纯 ASCII：翻译退化成了罗马字，留原文
-    ('删音译', r'(?m)^((?![^\n]*[A-Za-z])[^\n]*[^\x00-\x7f][^\n]*)'
-     r'\n[\x20-\x7e]+$', '$1', True),
+    # 译文里没有汉字：这一行没真的译成中文，只留原文。接口在检测不出源语言时
+    # 会退化——音译回罗马字、原样回声、或者按猜错的语言漏译（末尾的词直接没了）。
+    # 判据只看译文形态，不看原文长相，短回复（Ja、Ok）的译文带汉字，不受牵连。
+    # 这条依赖 TARGET 是中文，换目标语言要跟着换字符类
+    ('留原文', r'(?m)^([^\n]+)\n(?![^\n]*[㐀-鿿])[^\n]+$', '$1', True),
     # 译文与原文一字不差：接口原样送回，不用摆两遍
     ('并同文', r'(?m)^([^\n]+)\n\1$', '$1', True),
     ('修边', r'\A\s+|\s+\z', '', True),
@@ -184,8 +186,20 @@ def setvar(value, name):
     return action('setvariable', {'WFInput': attach(value), 'WFVariableName': name})
 
 
+def show(value, title, output):
+    """交付一份文本：复制到剪贴板，再以 title 为名弹出预览"""
+    doc = uid()
+    return [
+        action('setclipboard', {'WFInput': attach(value)}),
+        action('setitemname', {
+            'WFInput': attach(value), 'WFName': tokens(title),
+            'CustomOutputName': output, 'UUID': doc}),
+        action('previewdocument', {'WFInput': attach(ref(doc, output))}),
+    ]
+
+
 def ascii_regex(find):
-    # 正则统一转成 \uXXXX 转义：非 ASCII 字符在部分设备的替换动作里水土不服。
+    # 正则统一转成 \uXXXX 转义：非 ASCII 字符在部分设备的替换动作里不可靠。
     # ICU 按 UTF-16 计数，超出 BMP 的字符要拆成代理对
     def esc(c):
         if c.isascii():
@@ -224,16 +238,18 @@ def end(group):
     return action('conditional', {'GroupingIdentifier': group, 'WFControlFlowMode': 2})
 
 
-def workflow(actions):
+# 缺省是截图翻译自己的外观与输入；installer 生成的快捷指令收文件，另行覆盖
+def workflow(actions, icon_color=946986751, input_classes=('WFImageContentItem',)):
     return {
         'WFWorkflowMinimumClientVersionString': '900',
         'WFWorkflowMinimumClientVersion': 900,
-        'WFWorkflowIcon': {'WFWorkflowIconStartColor': 946986751, 'WFWorkflowIconGlyphNumber': 59729},
+        'WFWorkflowIcon': {'WFWorkflowIconStartColor': icon_color,
+                           'WFWorkflowIconGlyphNumber': 59729},
         'WFWorkflowClientVersion': '4046.0.2.1.102',
         'WFWorkflowOutputContentItemClasses': [],
         'WFWorkflowHasOutputFallback': False,
         'WFWorkflowActions': actions,
-        'WFWorkflowInputContentItemClasses': ['WFImageContentItem'],
+        'WFWorkflowInputContentItemClasses': list(input_classes),
         'WFWorkflowTypes': ['ActionExtension', 'WFWorkflowTypeShowInSearch'],
         'WFWorkflowImportQuestions': [],
         'WFQuickActionSurfaces': [],
@@ -246,7 +262,6 @@ def workflow(actions):
 def source():
     src = '源图像'
     shot, height, crop, ocr, branch = (uid() for _ in range(5))
-    # 两端都不裁时省掉算高度和裁剪两步，截屏直接进 OCR
     image, trim = ref(shot, '截屏'), []
     if TOP_INSET or BOTTOM_INSET:
         trim = [
@@ -290,22 +305,8 @@ BASE = ('https://translate.googleapis.com/translate_a/t'
 
 
 def google(text):
-    """把清理后的文本送谷歌翻译，回传原始响应。不用系统翻译（本可不出设备）：
-    不支持的语言不报错，退化成罗马字音译——有值不算失败，
-    「空值才回退」在快捷指令里兜不住。
-    每行独立作一个 q：语言检测逐行进行，混排截图里的少数语种不再被整体
-    检测淹没；译文按元素与行一一对应，不再指望接口保留换行。
-    行首再用 notranslate span 裹一份原文，接口把 span 内容原样送回——
-    原文译文同乘一个元素回来，逐行对照不需要循环配对（「重复项目」在设备的
-    文本模板里解析为空，循环配对每行要跑八个动作，是旧版最慢的一环）。
-    文本编码后拼进 URL 走 GET。POST 的坑趟遍了：「表单」体实为 multipart，
-    接口只认 urlencoded；「文件」体的自定义 Content-Type 头不生效——
-    两种都拿到 400 错误页。URL 全长约 16K 字符封顶，特长文本同样得 400，
-    响应里没有配对痕迹，落进「没译出来」分支"""
     enc, req, join = (uid() for _ in range(3))
     trim_act, trimmed = replace(text, r'\A\s+|\s+\z', '', '修边原文')
-    # 原文里的 & < > 先转成实体：载荷里唯一的真标签必须是下面包上去的
-    # span 和 <br>，字面的 </span> 混进去会让配对解析错乱。和号最先转
     amp_act, escaped = replace(trimmed, r'&', '&amp;', '转义和号')
     lt_act, escaped = replace(escaped, r'<', '&lt;', '转义小于号')
     gt_act, escaped = replace(escaped, r'>', '&gt;', '转义大于号')
@@ -314,16 +315,12 @@ def google(text):
     q_act, q = replace(ref(enc, '编码文本'), r'%0A', '&q=', '请求参数', False)
     return [
         trim_act, amp_act, lt_act, gt_act, wrap_act,
-        action('urlencode', {'WFInput': tokens(wrapped), 'WFEncodeMode': 'Encode',
-                             'CustomOutputName': '编码文本', 'UUID': enc}),
+        action('urlencode', {'WFInput': tokens(
+            wrapped), 'WFEncodeMode': 'Encode', 'CustomOutputName': '编码文本', 'UUID': enc}),
         q_act,
         action('downloadurl', {
             'WFURL': tokens(BASE + '&q=', q),
             'CustomOutputName': '接口响应', 'UUID': req}),
-        # 响应标着 application/json，「获取 URL 内容」把它解析成列表。
-        # 列表会原样穿过只有孤身变量的文本模板，替换动作变成逐项映射，
-        # 多个条目一路传到快速查看，弹成「选取项目」列表——
-        # 先拼合回单个文本，替换链才有完整的文档可整形
         action('text.combine', {'text': attach(ref(req, '接口响应')),
                                 'WFTextSeparator': 'New Lines',
                                 'CustomOutputName': '整段响应', 'UUID': join}),
@@ -331,12 +328,11 @@ def google(text):
 
 
 def deliver(text, switch):
-    count, match, pairs, pair_doc, plain_doc, enough, translated, raw_json, mode = (
-        uid() for _ in range(9))
+    count, chars, enough, translated, raw_json, mode, readable = (
+        uid() for _ in range(7))
     google_acts, response = google(text)
-    # 翻译内容门槛：剔掉孤立短拉丁词，再剔掉标点数字，一无所剩就不必翻
-    short_act, gist = replace(text, SHORT_WORDS, '', '实词序列', False)
-    letters_act, letters = replace(gist, r'[\W\d_]', '', '字母序列', False)
+    # 翻译内容门槛：一个字母都不剩就不必翻
+    letters_act, letters = replace(text, GIST, '', '字母序列', False)
     lines = '逐行响应'
     unescape_acts, undoc = [], response
     for name, find, repl, case_sensitive in UNESCAPE:
@@ -351,57 +347,51 @@ def deliver(text, switch):
     orig_act, trans_only = replace(doc, DROP_ORIG, '', '纯译文')
     blank_act, packed = replace(trans_only, BLANK_LINES, '', '紧排译文')
     restore_act, restored = replace(packed, UNSENTINEL, '', '译文', False)
+    # 清空哨兵只留下换行，段落间隔靠它撑着；落在文首文末的那个是多余的
+    edge_act, trimmed = replace(restored, r'\A\s+|\s+\z', '', '修边译文')
     return [
-        short_act, letters_act,
+        letters_act,
         action('count', {'Input': attach(letters), 'WFCountType': 'Characters',
                          'CustomOutputName': '字母数', 'UUID': count}),
         when(ref(count, '字母数'), enough, 2, WFNumberValue=0),
         *google_acts,
-        # 成败看响应里有没有 span 痕迹：错误页和空响应都不会有
-        action('text.match', {
-            'WFMatchTextPattern': '<span translate=',
-            'text': tokens(response),
-            'CustomOutputName': '配对痕迹', 'UUID': match}),
-        action('count', {'Input': attach(ref(match, '配对痕迹')),
-                         'WFCountType': 'Items',
-                         'CustomOutputName': '配对数', 'UUID': pairs}),
-        when(ref(pairs, '配对数'), translated, 2, WFNumberValue=0),
+        when(response, translated, 'Contains',
+             WFConditionalActionString=PAIR_MARK),
         setvar(response, lines),
-        when(response, raw_json, 'Contains', WFConditionalActionString=ESCAPE_MARK),
+        when(response, raw_json, 'Contains',
+             WFConditionalActionString=ESCAPE_MARK),
         *unescape_acts,
         setvar(undoc, lines),
         end(raw_json),
         *pair_acts,
         when(switch, mode, 4, WFNumberValue=1),
         strip_act,
-        action('setclipboard', {'WFInput': attach(paired)}),
-        action('setitemname', {
-            'WFInput': attach(paired), 'WFName': tokens('对照结果'),
-            'CustomOutputName': '对照展示稿', 'UUID': pair_doc}),
-        action('previewdocument', {'WFInput': attach(ref(pair_doc, '对照展示稿'))}),
+        *show(paired, '对照结果', '对照展示稿'),
         otherwise(mode),
-        orig_act, blank_act, restore_act,
-        action('setclipboard', {'WFInput': attach(restored)}),
-        action('setitemname', {
-            'WFInput': attach(restored), 'WFName': tokens(TITLE),
-            'CustomOutputName': '展示稿', 'UUID': plain_doc}),
-        action('previewdocument', {'WFInput': attach(ref(plain_doc, '展示稿'))}),
+        orig_act, blank_act, restore_act, edge_act,
+        *show(trimmed, TITLE, '展示稿'),
         end(mode),
+        # 接口没应答：原文照样交付，标题说明这是原文
         otherwise(translated),
-        action('setclipboard', {'WFInput': attach(text)}),
-        action('notification', {
-            'WFNotificationActionBody': '没译出来，原文已复制',
-            'WFNotificationActionSound': False}),
+        *show(text, ORIGINAL, '原文稿'),
         end(translated),
+        # 没有够格送译的内容：人名、代号、纯数字仍是识别结果，一并给出；
+        # 一个字都没识别到才提示
         otherwise(enough),
-        action('notification', {'WFNotificationActionBody': '没有识别到值得翻译的文字',
+        action('count', {'Input': attach(text), 'WFCountType': 'Characters',
+                         'CustomOutputName': '原文字数', 'UUID': chars}),
+        when(ref(chars, '原文字数'), readable, 2, WFNumberValue=0),
+        *show(text, ORIGINAL, '原文备份稿'),
+        otherwise(readable),
+        action('notification', {'WFNotificationActionBody': '没有识别到文字',
                                 'WFNotificationActionSound': False}),
+        end(readable),
         end(enough),
     ]
 
 
 def toggle():
-    """对照开关放在最前面：在快捷指令编辑器里改这个数字即可切换模式"""
+    """对照开关放在最前面，在快捷指令编辑器里改这个数字即可切换模式"""
     num = uid()
     return [
         action('comment', {'WFCommentActionText': '对照开关：1 逐行对照，0 只显示译文'}),
