@@ -26,7 +26,9 @@
 python build.py
 ```
 
-产物为 `截图翻译.shortcut`。iOS 不允许直接导入未签名的快捷指令文件，需要借助辅助快捷指令完成导入：
+产物为 `截图翻译.shortcut`。如果自动截屏的结果裁掉了正文，或底部横条没被裁净，改 `build.py` 顶部的 `BOTTOM_INSET` 后重新构建，它是底部裁掉的像素数。
+
+iOS 不允许直接导入未签名的快捷指令文件，需要借助辅助快捷指令完成导入：
 
 1. 安装 [Shortcut Installer](https://www.icloud.com/shortcuts/9918c1c856c049b4beb7918904b1fe0d)，它由本仓库的 `installer.py` 生成。
 2. 把 `截图翻译.shortcut` 传到 iPhone（AirDrop、微信、Telegram 均可）。

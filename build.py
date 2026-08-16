@@ -8,6 +8,7 @@ TARGET = 'zh-CN'
 MIN_LETTERS = 2  # 词长不超过该值的拉丁词不算翻译内容：人名、代号常见此形
 TITLE = '翻译结果'
 BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
+BOTTOM_INSET = 120  # 底部横条裁掉的像素，按 3 倍图计
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
 # --- 清理规则 ---
@@ -240,7 +241,7 @@ def workflow(actions):
 
 def source():
     src = '源图像'
-    shot, top, height, crop, ocr, branch = (uid() for _ in range(6))
+    shot, top, avail, height, crop, ocr, branch = (uid() for _ in range(7))
     return [
         when(SHARE_INPUT, branch),
         setvar(SHARE_INPUT, src),
@@ -251,9 +252,15 @@ def source():
             'WFInput': attach(ref(shot, '截屏', prop('Height'))),
             'WFMathOperation': '×', 'WFMathOperand': '13E-2',
             'CustomOutputName': '顶栏高度', 'UUID': top}),
+        # 可用高度是截屏减去顶栏的部分。底部横条的高度不随屏幕大小变，
+        # 按比例裁会在长屏幕上吃掉正文，所以减的是固定像素
         action('math', {
             'WFInput': attach(ref(shot, '截屏', prop('Height'))),
-            'WFMathOperation': '×', 'WFMathOperand': '735E-3',
+            'WFMathOperation': '×', 'WFMathOperand': '87E-2',
+            'CustomOutputName': '可用高度', 'UUID': avail}),
+        action('math', {
+            'WFInput': attach(ref(avail, '可用高度')),
+            'WFMathOperation': '-', 'WFMathOperand': str(BOTTOM_INSET),
             'CustomOutputName': '内容高度', 'UUID': height}),
         action('image.crop', {
             'WFInput': attach(ref(shot, '截屏')),
