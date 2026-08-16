@@ -8,9 +8,11 @@ TARGET = 'zh-CN'
 MIN_LETTERS = 2  # 词长不超过该值的拉丁词不算翻译内容：人名、代号常见此形
 TITLE = '翻译结果'
 BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
-# 底部另裁掉的像素，按 3 倍图计。缺省不裁：home indicator 一带没有文字，
-# 而底部工具栏高度因 App 而异，裁一半只会让 OCR 读出半截字符。
-# 某个 App 的底栏总混进结果时，整条裁掉（工具栏连横条约 250px）
+# 自动截屏后上下各裁掉的像素，按 3 倍图计。缺省都不裁：状态栏的时间电量
+# 由清理规则过滤，home indicator 一带没有文字，而工具栏高度因 App 而异，
+# 裁一半只会让 OCR 读出半截字符。按比例裁则会在横屏下切掉两端的正文。
+# 某个 App 的头尾总混进结果时，在这里整条裁掉（工具栏连横条约 250px）
+TOP_INSET = 0
 BOTTOM_INSET = 0
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
@@ -244,37 +246,32 @@ def workflow(actions):
 
 def source():
     src = '源图像'
-    shot, top, height, inset, crop, ocr, branch = (uid() for _ in range(7))
-    # 底部不裁时，减法那步连同它的输出一起省掉
-    trim = [action('math', {
-        'WFInput': attach(ref(height, '内容高度')),
-        'WFMathOperation': '-', 'WFMathOperand': str(BOTTOM_INSET),
-        'CustomOutputName': '裁后高度', 'UUID': inset})] if BOTTOM_INSET else []
-    crop_height = ref(inset, '裁后高度') if BOTTOM_INSET else ref(height, '内容高度')
+    shot, height, crop, ocr, branch = (uid() for _ in range(5))
+    # 两端都不裁时，截屏直接进 OCR：算高度和裁剪的动作一并省掉
+    image, trim = ref(shot, '截屏'), []
+    if TOP_INSET or BOTTOM_INSET:
+        trim = [
+            action('math', {
+                'WFInput': attach(ref(shot, '截屏', prop('Height'))),
+                'WFMathOperation': '-',
+                'WFMathOperand': str(TOP_INSET + BOTTOM_INSET),
+                'CustomOutputName': '内容高度', 'UUID': height}),
+            action('image.crop', {
+                'WFInput': attach(ref(shot, '截屏')),
+                'WFImageCropPosition': 'Custom',
+                'WFImageCropX': '0', 'WFImageCropY': str(TOP_INSET),
+                'WFImageCropWidth': attach(ref(shot, '截屏', prop('Width'))),
+                'WFImageCropHeight': attach(ref(height, '内容高度')),
+                'CustomOutputName': '内容图像', 'UUID': crop}),
+        ]
+        image = ref(crop, '内容图像')
     return [
         when(SHARE_INPUT, branch),
         setvar(SHARE_INPUT, src),
         otherwise(branch),
         action('takescreenshot', {'UUID': shot}),
-        # 比例写 E 记数法：小数点在部分地区解析有歧义，小数写法会被导入工具拦下
-        action('math', {
-            'WFInput': attach(ref(shot, '截屏', prop('Height'))),
-            'WFMathOperation': '×', 'WFMathOperand': '13E-2',
-            'CustomOutputName': '顶栏高度', 'UUID': top}),
-        # 内容高度是截屏减去顶栏的部分
-        action('math', {
-            'WFInput': attach(ref(shot, '截屏', prop('Height'))),
-            'WFMathOperation': '×', 'WFMathOperand': '87E-2',
-            'CustomOutputName': '内容高度', 'UUID': height}),
         *trim,
-        action('image.crop', {
-            'WFInput': attach(ref(shot, '截屏')),
-            'WFImageCropPosition': 'Custom',
-            'WFImageCropX': '0', 'WFImageCropY': attach(ref(top, '顶栏高度')),
-            'WFImageCropWidth': attach(ref(shot, '截屏', prop('Width'))),
-            'WFImageCropHeight': attach(crop_height),
-            'CustomOutputName': '内容图像', 'UUID': crop}),
-        setvar(ref(crop, '内容图像'), src),
+        setvar(image, src),
         end(branch),
         action('extracttextfromimage', {
             'WFImage': attach(variable(src)), 'CustomOutputName': '提取文本', 'UUID': ocr}),
