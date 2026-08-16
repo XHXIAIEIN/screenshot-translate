@@ -38,8 +38,8 @@ iOS 不允许直接导入未签名的快捷指令文件，需借助辅助快捷�
 
 MIT
 
-本项目与 Apple Inc. 无关，未获其背书。Apple、iOS、快捷指令均为 Apple Inc. 的商标。
+本项目与 Apple Inc. 无关。
 
 ## Credits
 
-`Shortcut Installer` 的远程签名借用了 [Shortcut Source Helper](https://www.icloud.com/shortcuts/7125fde0360a49f5994d02fb6d1b1fbd) 的服务端点；它自身首次导入到 iPhone，也要靠 [Shortcut Source Tool](https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051) 和 Shortcut Source Helper 完成。感谢两者的作者。
+签名与导入依赖 [Shortcut Source Tool](https://www.icloud.com/shortcuts/e6fdda8687cf49b4a4c965995b70c051) 和 [Shortcut Source Helper](https://www.icloud.com/shortcuts/7125fde0360a49f5994d02fb6d1b1fbd)。
