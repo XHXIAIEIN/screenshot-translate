@@ -224,9 +224,9 @@ def end(group):
     return action('conditional', {'GroupingIdentifier': group, 'WFControlFlowMode': 2})
 
 
-# 缺省外观是蓝底引号、缺省输入是图像，三项都可覆盖。
+# 缺省外观是蓝底四芒星、缺省输入是图像，三项都可覆盖。
 # 颜色是 RGBA 打包的整数，图标编号见 electrikmilk/shortcuts-glyph-search
-def workflow(actions, icon_color=946986751, icon_glyph=59729,
+def workflow(actions, icon_color=946986751, icon_glyph=62352,
              input_classes=('WFImageContentItem',)):
     return {
         'WFWorkflowMinimumClientVersionString': '900',
