@@ -238,13 +238,16 @@ def end(group):
     return action('conditional', {'GroupingIdentifier': group, 'WFControlFlowMode': 2})
 
 
-# 缺省是截图翻译自己的外观与输入；installer 生成的快捷指令收文件，另行覆盖
-def workflow(actions, icon_color=946986751, input_classes=('WFImageContentItem',)):
+# 缺省是截图翻译自己的外观与输入：蓝底引号（#3871DE + doubleQuote）。
+# installer 生成的快捷指令收文件、另换外观，三项都可覆盖。
+# 颜色是 RGBA 打包的整数，图标编号见 electrikmilk/shortcuts-glyph-search
+def workflow(actions, icon_color=946986751, icon_glyph=59729,
+             input_classes=('WFImageContentItem',)):
     return {
         'WFWorkflowMinimumClientVersionString': '900',
         'WFWorkflowMinimumClientVersion': 900,
         'WFWorkflowIcon': {'WFWorkflowIconStartColor': icon_color,
-                           'WFWorkflowIconGlyphNumber': 59729},
+                           'WFWorkflowIconGlyphNumber': icon_glyph},
         'WFWorkflowClientVersion': '4046.0.2.1.102',
         'WFWorkflowOutputContentItemClasses': [],
         'WFWorkflowHasOutputFallback': False,
