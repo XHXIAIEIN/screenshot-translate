@@ -8,7 +8,10 @@ TARGET = 'zh-CN'
 MIN_LETTERS = 2  # 词长不超过该值的拉丁词不算翻译内容：人名、代号常见此形
 TITLE = '翻译结果'
 BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
-BOTTOM_INSET = 120  # 底部横条裁掉的像素，按 3 倍图计
+# 底部另裁掉的像素，按 3 倍图计。缺省不裁：home indicator 一带没有文字，
+# 而底部工具栏高度因 App 而异，裁一半只会让 OCR 读出半截字符。
+# 某个 App 的底栏总混进结果时，整条裁掉（工具栏连横条约 250px）
+BOTTOM_INSET = 0
 SHARE_INPUT = {'Type': 'ExtensionInput'}
 
 # --- 清理规则 ---
@@ -241,7 +244,13 @@ def workflow(actions):
 
 def source():
     src = '源图像'
-    shot, top, avail, height, crop, ocr, branch = (uid() for _ in range(7))
+    shot, top, height, inset, crop, ocr, branch = (uid() for _ in range(7))
+    # 底部不裁时，减法那步连同它的输出一起省掉
+    trim = [action('math', {
+        'WFInput': attach(ref(height, '内容高度')),
+        'WFMathOperation': '-', 'WFMathOperand': str(BOTTOM_INSET),
+        'CustomOutputName': '裁后高度', 'UUID': inset})] if BOTTOM_INSET else []
+    crop_height = ref(inset, '裁后高度') if BOTTOM_INSET else ref(height, '内容高度')
     return [
         when(SHARE_INPUT, branch),
         setvar(SHARE_INPUT, src),
@@ -252,22 +261,18 @@ def source():
             'WFInput': attach(ref(shot, '截屏', prop('Height'))),
             'WFMathOperation': '×', 'WFMathOperand': '13E-2',
             'CustomOutputName': '顶栏高度', 'UUID': top}),
-        # 可用高度是截屏减去顶栏的部分。底部横条的高度不随屏幕大小变，
-        # 按比例裁会在长屏幕上吃掉正文，所以减的是固定像素
+        # 内容高度是截屏减去顶栏的部分
         action('math', {
             'WFInput': attach(ref(shot, '截屏', prop('Height'))),
             'WFMathOperation': '×', 'WFMathOperand': '87E-2',
-            'CustomOutputName': '可用高度', 'UUID': avail}),
-        action('math', {
-            'WFInput': attach(ref(avail, '可用高度')),
-            'WFMathOperation': '-', 'WFMathOperand': str(BOTTOM_INSET),
             'CustomOutputName': '内容高度', 'UUID': height}),
+        *trim,
         action('image.crop', {
             'WFInput': attach(ref(shot, '截屏')),
             'WFImageCropPosition': 'Custom',
             'WFImageCropX': '0', 'WFImageCropY': attach(ref(top, '顶栏高度')),
             'WFImageCropWidth': attach(ref(shot, '截屏', prop('Width'))),
-            'WFImageCropHeight': attach(ref(height, '内容高度')),
+            'WFImageCropHeight': attach(crop_height),
             'CustomOutputName': '内容图像', 'UUID': crop}),
         setvar(ref(crop, '内容图像'), src),
         end(branch),
