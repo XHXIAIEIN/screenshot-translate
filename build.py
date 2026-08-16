@@ -8,10 +8,9 @@ TARGET = 'zh-CN'
 MIN_LETTERS = 2  # 词长不超过该值的拉丁词不算翻译内容：人名、代号常见此形
 TITLE = '翻译结果'
 BILINGUAL = 1  # 烙进快捷指令的对照开关缺省值：1 逐行对照，0 只显示译文
-# 自动截屏后上下各裁掉的像素，按 3 倍图计。缺省都不裁：状态栏的时间电量
-# 由清理规则过滤，home indicator 一带没有文字，而工具栏高度因 App 而异，
-# 裁一半只会让 OCR 读出半截字符。按比例裁则会在横屏下切掉两端的正文。
-# 某个 App 的头尾总混进结果时，在这里整条裁掉（工具栏连横条约 250px）
+# 自动截屏后上下各裁掉的像素（3 倍图）。缺省不裁：状态栏那点文字由清理规则
+# 兜住，而工具栏高度因 App 而异，裁一半会让 OCR 读出半截字符。某个 App 的
+# 头尾总混进结果时，在这里整条裁掉（工具栏连横条约 250px）
 TOP_INSET = 0
 BOTTOM_INSET = 0
 SHARE_INPUT = {'Type': 'ExtensionInput'}
@@ -247,7 +246,7 @@ def workflow(actions):
 def source():
     src = '源图像'
     shot, height, crop, ocr, branch = (uid() for _ in range(5))
-    # 两端都不裁时，截屏直接进 OCR：算高度和裁剪的动作一并省掉
+    # 两端都不裁时省掉算高度和裁剪两步，截屏直接进 OCR
     image, trim = ref(shot, '截屏'), []
     if TOP_INSET or BOTTOM_INSET:
         trim = [
