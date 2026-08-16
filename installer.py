@@ -67,7 +67,6 @@ def build():
                              '请选择一个 .shortcut 文件，然后「共享」→「安装快捷指令」',
                          'WFAlertActionCancelButtonShown': False}),
         end(branch),
-        # 粉底 #ED4694 配圆圈下箭头：和截图翻译的蓝底引号在网格里分得开
     ], icon_color=3980825855, icon_glyph=61440,
         input_classes=['WFGenericFileContentItem'])
 
