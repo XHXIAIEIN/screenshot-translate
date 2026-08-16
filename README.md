@@ -4,7 +4,7 @@
 
 ## 安装
 
-在 iPhone 上打开 [iCloud 链接](https://www.icloud.com/shortcuts/c04d54147b1b4890a65129e3e51ee9e1) 安装。
+在 iPhone 上打开 [iCloud 链接](https://www.icloud.com/shortcuts/f9d4dd8784034492ae25baf71b78d930) 安装。
 
 安装后，建议为它绑定一个快捷触发方式：操作按钮、轻点背面或悬浮球，后两者可在 **设置** > **辅助功能** > **触控** 中设置。
 
